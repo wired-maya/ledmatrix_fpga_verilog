@@ -97,41 +97,36 @@ module main (
     integer is_waiting = 0;
 
     always @(posedge CLK) begin
-        // TODO: colour depth
-        if (bcm_counter == (bcm_delay << bit)) begin
-            is_waiting = 0;
-            bcm_counter = 0;
-        end else if (is_waiting == 0) begin
-            if (ctrl_clk == 0) begin
-                if (_x == 0) ctrl_lat = 0; // Close latch to load in next data
+        // TODO: colour depth -- Simplest way is LUT with PWM?
+        if (ctrl_clk == 0) begin
+            if (_x == 0) ctrl_lat = 0; // Close latch to load in next data
 
-                // Load colours
-                col_buff[0] = colour[bit];                          // R1
-                col_buff[1] = colour[bit];                          // R2
-                col_buff[2] = colour[bit + bit_depth];              // G1
-                col_buff[3] = colour[bit + bit_depth];              // G2
-                col_buff[4] = colour[bit + bit_depth + bit_depth];  // B1
-                col_buff[5] = colour[bit + bit_depth + bit_depth];  // B2
-                
-                ctrl_clk = 1;
-                _x = _x + 1;
+            // Load colours
+            col_buff[0] = colour[bit];                          // R1
+            col_buff[1] = colour[bit];                          // R2
+            col_buff[2] = colour[bit + bit_depth];              // G1
+            col_buff[3] = colour[bit + bit_depth];              // G2
+            col_buff[4] = colour[bit + bit_depth + bit_depth];  // B1
+            col_buff[5] = colour[bit + bit_depth + bit_depth];  // B2
+            
+            ctrl_clk = 1;
+            _x = _x + 1;
 
-                if (_x >= width) begin
-                    _x = 0;
-                    ctrl_lat = 1; // Open latch to commit colours
-                    bit = bit + 1;
+            if (_x >= width) begin
+                _x = 0;
+                ctrl_lat = 1; // Open latch to commit colours
+                bit = bit + 1;
 
-                    is_waiting = 1;
-                end
+                is_waiting = 1;
+            end
 
-                if (bit >= bit_depth) begin
-                    bit = 0;
-                    _address = _address + 1;
-                end
-                
-                if (_address >= halfwidth) _address = 0;
-            end else ctrl_clk <= 0;
-        end else bcm_counter <= bcm_counter + 1;
+            if (bit >= bit_depth) begin
+                bit = 0;
+                _address = _address + 1;
+            end
+            
+            if (_address >= halfwidth) _address = 0;
+        end else ctrl_clk <= 0;
     end
 
     // PWM at clock frequency
