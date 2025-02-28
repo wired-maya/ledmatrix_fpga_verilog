@@ -27,14 +27,19 @@ module main (
     parameter width = 64;
     parameter halfwidth = 32;
     parameter height = 64;
-    parameter [23:0] colour = 24'h964B00;
-    // parameter [23:0] colour = 24'hFFFFFF;
+    
+    // Test colour
+    // Reversed because bit indexing is backwards in Verilog
+    // parameter [0:23] colour = 24'h964B00;
+    parameter [0:23] colour = 24'h010001;
 
     // Drive USB pull-up resistor to '0' to disable USB
     assign USBPU = 0;
 
     // Wires for each pin needed by matrix
-    reg ctrl_oe, ctrl_clk, ctrl_lat;
+    reg ctrl_oe;
+    reg ctrl_clk = 0;
+    reg ctrl_lat = 0; // Closed initially
     wire addr_a, addr_b, addr_c, addr_d, addr_e;
     wire col_r1, col_r2, col_g1, col_g2, col_b1, col_b2;
 
@@ -88,44 +93,48 @@ module main (
     integer bit = 0;
     integer bcm_delay = 1;
     integer bcm_counter = 1;
+
     always @(posedge CLK) begin
         // TODO: colour depth
 
-        if (bcm_counter >= (bcm_delay << bit)) begin
-            ctrl_lat = 0; // Close latch to load in next data
+        if (ctrl_clk == 0) begin
+            if (bcm_counter >= (bcm_delay << bit)) begin
+                ctrl_lat = 0; // Close latch to load in next data
 
-            // Load colours
-            col_buff[0] = colour[bit];                          // R1
-            col_buff[1] = colour[bit];                          // R2
-            col_buff[2] = colour[bit + bit_depth];              // G1
-            col_buff[3] = colour[bit + bit_depth];              // G2
-            col_buff[4] = colour[bit + bit_depth + bit_depth];  // B1
-            col_buff[5] = colour[bit + bit_depth + bit_depth];  // B2
-            
-            ctrl_clk = 1;
-            ctrl_clk = 0;
+                // Load colours
+                col_buff[0] = colour[bit];                          // R1
+                col_buff[1] = colour[bit];                          // R2
+                col_buff[2] = colour[bit + bit_depth];              // G1
+                col_buff[3] = colour[bit + bit_depth];              // G2
+                col_buff[4] = colour[bit + bit_depth + bit_depth];  // B1
+                col_buff[5] = colour[bit + bit_depth + bit_depth];  // B2
+                
+                ctrl_clk = 1;
 
-            _x = _x + 1;
+                // ctrl_clk = 0;
 
-            // Commit loaded colours
-            if (_x >= width) begin
-                _x = 0;
+                _x = _x + 1;
 
-                ctrl_lat = 1; // Open latch to commit colours
+                // Commit loaded colours
+                if (_x >= width) begin
+                    _x = 0;
 
-                bit = bit + 1;
-                bcm_counter = 1;
+                    ctrl_lat = 1; // Open latch to commit colours
+
+                    bit = bit + 1;
+                    bcm_counter = 1;
+                end
+
+                if (bit >= bit_depth) begin
+                    bit = 0;
+                    _address = _address + 1;
+                end
+                
+                if (_address >= halfwidth) _address = 0;
             end
 
-            if (bit >= bit_depth) begin
-                bit = 0;
-                _address = _address + 1;
-            end
-            
-            if (_address >= halfwidth) _address = 0;
-        end
-
-        bcm_counter = bcm_counter + 1;
+            bcm_counter = bcm_counter + 1;
+        end else ctrl_clk = 0;
 
         pwm_counter <= pwm_counter + 1; // PWM at clock frequency
     end
@@ -133,5 +142,5 @@ module main (
     // Test LED
     wire test_led;
     assign LED = test_led;
-    assign test_led = _address;
+    assign test_led = ctrl_clk;
 endmodule
