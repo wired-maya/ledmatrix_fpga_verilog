@@ -30,14 +30,15 @@ module main (
     
     // Test colour
     // Reversed because bit indexing is backwards in Verilog
-    // parameter [0:23] colour = 24'h964B00;
-    parameter [0:23] colour = 24'h010001;
+    // parameter [0:23] colour = 24'h362312; // Dark brown
+    parameter [0:23] colour = 24'h080301; // Gamma corrected dark brown
+    // parameter [0:23] colour = 24'hFF0000;
 
     // Drive USB pull-up resistor to '0' to disable USB
     assign USBPU = 0;
 
     // Wires for each pin needed by matrix
-    reg ctrl_oe;
+    wire ctrl_oe;
     reg ctrl_clk = 0;
     reg ctrl_lat = 0; // Closed initially
     wire addr_a, addr_b, addr_c, addr_d, addr_e;
@@ -92,14 +93,17 @@ module main (
     integer y = 0;
     integer bit = 0;
     integer bcm_delay = 1;
-    integer bcm_counter = 1;
+    integer bcm_counter = 0;
+    integer is_waiting = 0;
 
     always @(posedge CLK) begin
         // TODO: colour depth
-
-        if (ctrl_clk == 0) begin
-            if (bcm_counter >= (bcm_delay << bit)) begin
-                ctrl_lat = 0; // Close latch to load in next data
+        if (bcm_counter == (bcm_delay << bit)) begin
+            is_waiting = 0;
+            bcm_counter = 0;
+        end else if (is_waiting == 0) begin
+            if (ctrl_clk == 0) begin
+                if (_x == 0) ctrl_lat = 0; // Close latch to load in next data
 
                 // Load colours
                 col_buff[0] = colour[bit];                          // R1
@@ -110,19 +114,14 @@ module main (
                 col_buff[5] = colour[bit + bit_depth + bit_depth];  // B2
                 
                 ctrl_clk = 1;
-
-                // ctrl_clk = 0;
-
                 _x = _x + 1;
 
-                // Commit loaded colours
                 if (_x >= width) begin
                     _x = 0;
-
                     ctrl_lat = 1; // Open latch to commit colours
-
                     bit = bit + 1;
-                    bcm_counter = 1;
+
+                    is_waiting = 1;
                 end
 
                 if (bit >= bit_depth) begin
@@ -131,12 +130,13 @@ module main (
                 end
                 
                 if (_address >= halfwidth) _address = 0;
-            end
+            end else ctrl_clk <= 0;
+        end else bcm_counter <= bcm_counter + 1;
+    end
 
-            bcm_counter = bcm_counter + 1;
-        end else ctrl_clk = 0;
-
-        pwm_counter <= pwm_counter + 1; // PWM at clock frequency
+    // PWM at clock frequency
+    always @(posedge CLK) begin
+        pwm_counter <= pwm_counter + 1;
     end
 
     // Test LED
