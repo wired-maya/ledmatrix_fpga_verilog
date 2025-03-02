@@ -1,3 +1,4 @@
+// Drive LED matrix
 module led_matrix(
     // TinyFPGA on-board pins
     input in_clk,    // 16MHz clock

@@ -4,7 +4,6 @@
 module main (
     // TinyFPGA on-board pins
     input CLK,     // 16MHz clock
-    output LED,    // User/boot LED next to power LED
     output USBPU,  // USB pull-up resistor
 
     // Output pins needed to control matrix
