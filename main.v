@@ -21,6 +21,16 @@ module main (
     output PIN_17,
     output PIN_18,
     output PIN_19,
+
+    // Input pins for HDMI
+    input PIN_24,
+    input PIN_23,
+    input PIN_22,
+    input PIN_21,
+    input PIN_13,
+    input PIN_12,
+    input PIN_11,
+    input PIN_10,
 );
     // Consts for display
     parameter bit_depth = 8;
@@ -44,6 +54,12 @@ module main (
     wire addr_a, addr_b, addr_c, addr_d, addr_e;
     wire col_r1, col_r2, col_g1, col_g2, col_b1, col_b2;
 
+    // TMDS wires for HDMI
+    wire tmds_data_2_pos, tmds_data_2_neg;
+    wire tmds_data_1_pos, tmds_data_1_neg;
+    wire tmds_data_0_pos, tmds_data_0_neg;
+    wire tmds_clk_pos, tmds_clk_neg;
+
     // Assign control pins, on the left side of the board
     assign PIN_1 = ctrl_oe; // "Output enabled" or blank pin
     assign PIN_2 = ctrl_clk; // Panel clock, not FPGA clock
@@ -63,6 +79,28 @@ module main (
     assign PIN_17 = col_g2;
     assign PIN_18 = col_b1;
     assign PIN_19 = col_b2;
+
+    // Assign HDMI specific pins
+    assign PIN_24 = tmds_data_2_pos;
+    assign PIN_23 = tmds_data_2_neg;
+    assign PIN_22 = tmds_data_1_pos;
+    assign PIN_21 = tmds_data_1_neg;
+    assign PIN_13 = tmds_data_0_pos;
+    assign PIN_12 = tmds_data_0_neg;
+    assign PIN_11 = tmds_clk_pos;
+    assign PIN_10 = tmds_clk_neg;
+
+    // Single wires
+    wire tmds_data_2;
+    wire tmds_data_1;
+    wire tmds_data_0;
+    wire tmds_clk;
+
+    // Convert differential signal to single wire
+    diff_sig_in diff_sig_data_2(tmds_data_2_pos, tmds_data_2_neg, tmds_data_2);
+    diff_sig_in diff_sig_data_1(tmds_data_1_pos, tmds_data_1_neg, tmds_data_1);
+    diff_sig_in diff_sig_data_0(tmds_data_0_pos, tmds_data_0_neg, tmds_data_0);
+    diff_sig_in diff_sig_clk(tmds_clk_pos, tmds_clk_neg, tmds_clk);
 
     // Brightness control using PWM and the blank pin
     assign ctrl_oe = pwm_pattern[pwm_counter]; // Set OE pin to PWM
@@ -92,9 +130,14 @@ module main (
     integer _x = 0; // x is already used in verilog
     integer y = 0;
     integer bit = 0;
-    integer bcm_delay = 1;
-    integer bcm_counter = 0;
-    integer is_waiting = 0;
+
+    wire [255:0] R_pwm_pattern;
+    wire [255:0] G_pwm_pattern;
+    wire [255:0] B_pwm_pattern;
+
+    pwm_lut R_pwm_lut(colour[0:7], R_pwm_pattern);
+    pwm_lut G_pwm_lut(colour[8:15], G_pwm_pattern);
+    pwm_lut B_pwm_lut(colour[16:23], B_pwm_pattern);
 
     always @(posedge CLK) begin
         // TODO: colour depth -- Simplest way is LUT with PWM?
@@ -102,12 +145,12 @@ module main (
             if (_x == 0) ctrl_lat = 0; // Close latch to load in next data
 
             // Load colours
-            col_buff[0] = colour[bit];                          // R1
-            col_buff[1] = colour[bit];                          // R2
-            col_buff[2] = colour[bit + bit_depth];              // G1
-            col_buff[3] = colour[bit + bit_depth];              // G2
-            col_buff[4] = colour[bit + bit_depth + bit_depth];  // B1
-            col_buff[5] = colour[bit + bit_depth + bit_depth];  // B2
+            col_buff[0] = R_pwm_pattern[bit]; // R1
+            col_buff[1] = R_pwm_pattern[bit]; // R2
+            col_buff[2] = G_pwm_pattern[bit]; // G1
+            col_buff[3] = G_pwm_pattern[bit]; // G2
+            col_buff[4] = B_pwm_pattern[bit]; // B1
+            col_buff[5] = B_pwm_pattern[bit]; // B2
             
             ctrl_clk = 1;
             _x = _x + 1;
@@ -116,11 +159,9 @@ module main (
                 _x = 0;
                 ctrl_lat = 1; // Open latch to commit colours
                 bit = bit + 1;
-
-                is_waiting = 1;
             end
 
-            if (bit >= bit_depth) begin
+            if (bit >= 256) begin
                 bit = 0;
                 _address = _address + 1;
             end
@@ -137,5 +178,5 @@ module main (
     // Test LED
     wire test_led;
     assign LED = test_led;
-    assign test_led = ctrl_clk;
+    assign test_led = tmds_clk_pos;
 endmodule
