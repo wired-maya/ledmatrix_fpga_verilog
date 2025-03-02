@@ -1,9 +1,6 @@
-module diff_sig_in(in_pos, in_neg, out);
-    input in_pos, in_neg;
-    output out;
-
+// Convert from a differential signal to a single signal
+module diff_sig_in(input in_pos, input in_neg, output out);
     reg out_reg;
-
     assign out = out_reg;
 
     // Do not change when both differential signals are equal
