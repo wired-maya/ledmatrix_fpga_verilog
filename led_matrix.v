@@ -23,7 +23,7 @@ module led_matrix(
     parameter bit_depth = 8;
     parameter width = 64;
     parameter height = 64;
-    parameter [23:0] colour = 24'h080301; // Test colour, gamma corrected dark brown
+    parameter [23:0] colour = 24'h362312; // Test colour, gamma corrected dark brown
 
     // Assign control pins to changing registers
     reg ctrl_clk_reg = 0;
@@ -55,14 +55,21 @@ module led_matrix(
     assign col_b1 = col_buff[4];
     assign col_b2 = col_buff[5];
 
+    // Gamma correct colour
+    wire [23:0] colour_corrected;
+
+    gamma_lut R_gamma_lut(colour[23:16], colour_corrected[23:16]);
+    gamma_lut G_gamma_lut(colour[15:8], colour_corrected[15:8]);
+    gamma_lut B_gamma_lut(colour[7:0], colour_corrected[7:0]);
+
     // Convert colour to dimming patterns
     wire [255:0] R_pwm_pattern;
     wire [255:0] G_pwm_pattern;
     wire [255:0] B_pwm_pattern;
 
-    pwm_lut R_pwm_lut(colour[23:16], R_pwm_pattern);
-    pwm_lut G_pwm_lut(colour[15:8], G_pwm_pattern);
-    pwm_lut B_pwm_lut(colour[7:0], B_pwm_pattern);
+    pwm_lut R_pwm_lut(colour_corrected[23:16], R_pwm_pattern);
+    pwm_lut G_pwm_lut(colour_corrected[15:8], G_pwm_pattern);
+    pwm_lut B_pwm_lut(colour_corrected[7:0], B_pwm_pattern);
 
     // Display loop that for now shows test colour
     integer _x = 0; // x is already used in verilog
